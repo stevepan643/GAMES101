@@ -22,4 +22,4 @@ typedef struct
     float w;
 } vec4f_t;
 
-#endif  /* RASTERIZATION_VEC_h */
+#endif /* RASTERIZATION_VEC_h */

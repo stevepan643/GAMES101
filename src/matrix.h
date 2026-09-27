@@ -6,4 +6,4 @@ typedef struct
     float m[4][4];
 } mat4f_t;
 
-#endif  /* RASTERIZATION_MATRIX_H */
+#endif /* RASTERIZATION_MATRIX_H */

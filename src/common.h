@@ -3,10 +3,10 @@
 
 #define BIT(x) (1 << (x))
 
-#include <stdint.h>
-#include <stddef.h>
 #include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
-#endif  /* RESTERIZATION_COMMON_H */
+#endif /* RESTERIZATION_COMMON_H */
