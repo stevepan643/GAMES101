@@ -77,7 +77,7 @@ static const float sample_offsets_4x[4][2] = {
     {0.625f, 0.875f},
 };
 
-static void rasterization(triangle_t *tri, uint32_t w, uint32_t h)
+static void RASTERIZER(triangle_t *tri, uint32_t w, uint32_t h)
 {
     float min_xf = fminf(fminf(tri->v1.x, tri->v2.x), tri->v3.x);
     float max_xf = fmaxf(fmaxf(tri->v1.x, tri->v2.x), tri->v3.x);
@@ -280,11 +280,10 @@ int main(void)
         uint32_t w = window_get_width(window);
         uint32_t h = window_get_height(window);
 
-        framebuffer_clear(fb, stride, bpp, w, h, COLOR_RGB(0xFF, 0xFF, 0xFF));
         for (size_t i = 0; i < depth_size; ++i)
             depth[i] = INFINITY;
         for (size_t i = 0; i < color_size; ++i)
-            color_buffer[i] = COLOR_RGB(0xFF, 0xFF, 0xFF);
+            color_buffer[i] = COLOR_RGB(0xAF, 0xAF, 0xAF);
 
         for (size_t i = 0; i < tri_count; ++i)
         {
@@ -301,7 +300,7 @@ int main(void)
             triangle_t tri =
                 triangle_create4f(s1, s2, s3, tris[i]->c1, tris[i]->c2, tris[i]->c3);
 
-            rasterization(&tri, w, h);
+            RASTERIZER(&tri, w, h);
         }
 
         msaa_resolve(fb, stride, bpp, w, h);

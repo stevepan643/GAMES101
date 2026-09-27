@@ -1,9 +1,9 @@
-#ifndef RASTERIZATION_MATRIX_H
-#define RASTERIZATION_MATRIX_H
+#ifndef RASTERIZER_MATRIX_H
+#define RASTERIZER_MATRIX_H
 
 typedef struct
 {
     float m[4][4];
 } mat4f_t;
 
-#endif /* RASTERIZATION_MATRIX_H */
+#endif /* RASTERIZER_MATRIX_H */

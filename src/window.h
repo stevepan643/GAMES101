@@ -1,5 +1,5 @@
-#ifndef RASTERIZATION_WINDOW_H
-#define RASTERIZATION_WINDOW_H
+#ifndef RASTERIZER_WINDOW_H
+#define RASTERIZER_WINDOW_H
 
 #include "color.h"
 #include "common.h"
@@ -81,4 +81,4 @@ static inline void framebuffer_set_color(framebuffer_t fb, uint32_t stride, uint
         pixel[3] = c.a;
 }
 
-#endif /* RASTERIZATION_WINDOW_H */
+#endif /* RASTERIZER_WINDOW_H */

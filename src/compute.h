@@ -1,5 +1,5 @@
-#ifndef RASTERIZATION_COMPUTE_H
-#define RASTERIZATION_COMPUTE_H
+#ifndef RASTERIZER_COMPUTE_H
+#define RASTERIZER_COMPUTE_H
 
 #include "matrix.h"
 #include "vec.h"
@@ -312,4 +312,4 @@ static inline mat4f_t mat4f_rotate_z(float angle)
     return m;
 }
 
-#endif /* RASTERIZATION_COMPUTE_H */
+#endif /* RASTERIZER_COMPUTE_H */

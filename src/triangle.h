@@ -1,5 +1,5 @@
-#ifndef RASTERIZATION_TRIANGLE_H
-#define RASTERIZATION_TRIANGLE_H
+#ifndef RASTERIZER_TRIANGLE_H
+#define RASTERIZER_TRIANGLE_H
 
 #include "color.h"
 #include "vec.h"
@@ -40,4 +40,4 @@ static inline triangle_t triangle_create4f(vec4f_t v1, vec4f_t v2, vec4f_t v3, c
     return t;
 }
 
-#endif /* RASTERIZATION_TRIANGLE_H */
+#endif /* RASTERIZER_TRIANGLE_H */

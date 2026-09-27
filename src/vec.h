@@ -1,5 +1,5 @@
-#ifndef RASTERIZATION_VEC_h
-#define RASTERIZATION_VEC_h
+#ifndef RASTERIZER_VEC_h
+#define RASTERIZER_VEC_h
 
 typedef struct
 {
@@ -22,4 +22,4 @@ typedef struct
     float w;
 } vec4f_t;
 
-#endif /* RASTERIZATION_VEC_h */
+#endif /* RASTERIZER_VEC_h */

@@ -1,5 +1,5 @@
-#ifndef RASTERIZATION_COLOR_H
-#define RASTERIZATION_COLOR_H
+#ifndef RASTERIZER_COLOR_H
+#define RASTERIZER_COLOR_H
 
 #include "common.h"
 
