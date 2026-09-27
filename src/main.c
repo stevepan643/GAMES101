@@ -14,9 +14,20 @@ size_t color_capacity = 0;
 
 uint32_t msaa_level = 4;
 
+static inline mat4f_t get_viewing(vec3f_t eyepos)
+{
+    mat4f_t viewing = {{
+        { 1, 0, 0, -eyepos.x },
+        { 0, 1, 0, -eyepos.y },
+        { 0, 0, 1, -eyepos.z },
+        { 0, 0, 0, 1 }
+    }};
+    return viewing;
+}
+
 static inline mat4f_t get_perspective(float fov_y, float aspect, float n, float f)
 {
-    float t = n * tanf(fov_y);
+    float t = n * tanf(fov_y * 0.5f);
     float r = t * aspect;
 
     mat4f_t projection = {{{n / r, 0, 0, 0},
@@ -27,15 +38,15 @@ static inline mat4f_t get_perspective(float fov_y, float aspect, float n, float 
     return projection;
 }
 
-static inline vec3f_t perspective_divide(vec4f_t v)
+static inline vec4f_t perspective_divide(vec4f_t v)
 {
-    vec3f_t r = {v.x / v.w, v.y / v.w, v.z / v.w};
+    vec4f_t r = {v.x / v.w, v.y / v.w, v.z / v.w, v.w};
     return r;
 }
 
-static inline vec3f_t ndc_to_screen(vec3f_t ndc, uint32_t w, uint32_t h)
+static inline vec4f_t ndc_to_screen(vec4f_t ndc, uint32_t w, uint32_t h)
 {
-    vec3f_t s = {(ndc.x + 1.0f) * 0.5f * (float)w, (1.0f - ndc.y) * 0.5f * (float)h, ndc.z};
+    vec4f_t s = {(ndc.x + 1.0f) * 0.5f * (float)w, (1.0f - ndc.y) * 0.5f * (float)h, ndc.z, ndc.w};
     return s;
 }
 
@@ -105,14 +116,19 @@ static void rasterization(triangle_t *tri, uint32_t w, uint32_t h)
 
                 size_t idx = ((size_t)y * w + (size_t)x) * msaa_level + s;
 
+                float iw = a * tri->v1.w + b * tri->v2.w + c * tri->v3.w;
+                float ca = a * tri->v1.w / iw;
+                float cb = b * tri->v2.w / iw;
+                float cc = c * tri->v3.w / iw;
+
                 if (z < depth[idx])
                 {
                     depth[idx] = z;
 
                     color_buffer[idx] =
-                        COLOR_RGB((uint8_t)(tri->c1.r * a + tri->c2.r * b + tri->c3.r * c),
-                                  (uint8_t)(tri->c1.g * a + tri->c2.g * b + tri->c3.g * c),
-                                  (uint8_t)(tri->c1.b * a + tri->c2.b * b + tri->c3.b * c));
+                        COLOR_RGB((uint8_t)(tri->c1.r * ca + tri->c2.r * cb + tri->c3.r * cc),
+                                  (uint8_t)(tri->c1.g * ca + tri->c2.g * cb + tri->c3.g * cc),
+                                  (uint8_t)(tri->c1.b * ca + tri->c2.b * cb + tri->c3.b * cc));
                 }
             }
         }
@@ -155,15 +171,40 @@ int main(void)
     window_set_flags(window, WINDOW_FLAG_RESIZABLE);
     // window_set_flags(window, WINDOW_FLAG_UNRESIZABLE);
 
-    vec4f_t v1 = {0.0f, 0.5f, -2.0f, 1.0f};
-    vec4f_t v2 = {0.5f, -0.5f, -2.0f, 1.0f};
-    vec4f_t v3 = {-0.5f, -0.5f, -2.0f, 1.0f};
+    triangle_t *tris[2];
 
-    float n = 0.1f, f = 100.0f;
-    float fov_y = 60.0f * 0.5f * ((float)M_PI / 180.0f);
+    triangle_t tri1 = triangle_create3f(
+        (vec3f_t){  2.0f, 0.0f, -2.0f },
+        (vec3f_t){  0.0f, 2.0f, -2.0f },
+        (vec3f_t){ -2.0f, 0.0f, -2.0f },
+        COLOR_RGB(0xFF, 0x00, 0x00), 
+        COLOR_RGB(0x00, 0xFF, 0x00),
+        COLOR_RGB(0x00, 0x00, 0xFF)
+    );
+
+    tris[0] = &tri1;
+
+    triangle_t tri2 = triangle_create3f(
+        (vec3f_t){  4.0f, -1.0f, -5.0f },
+        (vec3f_t){  3.0f,  1.5f, -5.0f },
+        (vec3f_t){ -0.5f,  0.5f, -5.0f },
+        COLOR_RGB(0xFF, 0x00, 0xFF), 
+        COLOR_RGB(0x00, 0xFF, 0x00),
+        COLOR_RGB(0xFF, 0x00, 0xFF)
+    );
+
+    tris[1] = &tri2;
+
+    size_t tri_count = 2;
+
+    float n = 0.01f, f = 100.0f;
+    float fov_y = 45.0f * ((float)M_PI / 180.0f);
     float aspect = (float)800 / (float)600;
 
     mat4f_t projection = get_perspective(fov_y, aspect, n, f);
+
+    vec3f_t eyepos = { 0, 0, 5.0f };
+    mat4f_t viewing = get_viewing(eyepos);
 
     depth_capacity = (size_t)800 * 600 * msaa_level;
     depth_size = depth_capacity;
@@ -245,19 +286,23 @@ int main(void)
         for (size_t i = 0; i < color_size; ++i)
             color_buffer[i] = COLOR_RGB(0xFF, 0xFF, 0xFF);
 
-        vec4f_t c1 = mat4f_mul_vec4f(projection, v1);
-        vec4f_t c2 = mat4f_mul_vec4f(projection, v2);
-        vec4f_t c3 = mat4f_mul_vec4f(projection, v3);
+        for (size_t i = 0; i < tri_count; ++i)
+        {
+            mat4f_t mvp = mat4f_mul(projection, viewing);
 
-        vec3f_t s1 = ndc_to_screen(perspective_divide(c1), w, h);
-        vec3f_t s2 = ndc_to_screen(perspective_divide(c2), w, h);
-        vec3f_t s3 = ndc_to_screen(perspective_divide(c3), w, h);
+            vec4f_t c1 = mat4f_mul_vec4f(mvp, tris[i]->v1);
+            vec4f_t c2 = mat4f_mul_vec4f(mvp, tris[i]->v2);
+            vec4f_t c3 = mat4f_mul_vec4f(mvp, tris[i]->v3);
 
-        triangle_t tri =
-            triangle_create3f(s1, s2, s3, COLOR_RGB(0xFF, 0x00, 0x00), COLOR_RGB(0x00, 0xFF, 0x00),
-                              COLOR_RGB(0x00, 0x00, 0xFF));
+            vec4f_t s1 = ndc_to_screen(perspective_divide(c1), w, h);
+            vec4f_t s2 = ndc_to_screen(perspective_divide(c2), w, h);
+            vec4f_t s3 = ndc_to_screen(perspective_divide(c3), w, h);
 
-        rasterization(&tri, w, h);
+            triangle_t tri =
+                triangle_create4f(s1, s2, s3, tris[i]->c1, tris[i]->c2, tris[i]->c3);
+
+            rasterization(&tri, w, h);
+        }
 
         msaa_resolve(fb, stride, bpp, w, h);
 
