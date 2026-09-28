@@ -4,7 +4,7 @@ PACKAGES := SDL3
 
 BUILD ?= debug
 TARGET := Rasterization
-SRCS := src/main.c src/window.c
+SRCS := src/main.c src/window.c src/pipeline.c
 
 CFLAGS := -Wall -Wextra -Wpedantic -Wshadow -Wconversion \
           -Werror=implicit-function-declaration \

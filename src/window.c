@@ -256,3 +256,8 @@ void window_destroy(window_t *window)
     free(window->title);
     free(window);
 }
+
+uint64_t window_get_time(void)
+{
+    return SDL_GetTicks();
+}
