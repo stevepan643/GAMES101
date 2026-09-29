@@ -5,7 +5,7 @@ PACKAGES := SDL3
 BUILD ?= debug
 TARGET := Rasterization
 SRCS := src/main.c src/window.c src/pipeline.c
-STB_SRC := src/stb_image_impl.c
+LIB_SRC := src/stb_image_impl.c src/tiny_obj_c.c src/tobj_tess.c
 
 .DEFAULT_GOAL := $(TARGET)
 
@@ -17,6 +17,8 @@ CFLAGS := -Wall -Wextra -Wpedantic -Wshadow -Wconversion \
           $(shell $(PKG_CONFIG) --cflags $(PACKAGES))
 LIBS := $(shell $(PKG_CONFIG) --libs $(PACKAGES))
 LDFLAGS :=
+
+LIB_CFLAGS := -O2 -g -Isrc -MMD -MP
 
 ifeq ($(BUILD),debug)
     CFLAGS  += -O0 -g3 -DDEBUG -fsanitize=address,undefined -fno-omit-frame-pointer
@@ -32,15 +34,15 @@ else
 endif
 
 OBJS := $(patsubst %.c,$(BUILD_DIR)/%.o,$(SRCS))
-STB_OBJ := $(patsubst %.c,$(BUILD_DIR)/%.o,$(STB_SRC))
-ALL_OBJS := $(OBJS) $(STB_OBJ)
+LIB_OBJ := $(patsubst %.c,$(BUILD_DIR)/%.o,$(LIB_SRC))
+ALL_OBJS := $(OBJS) $(LIB_OBJ)
 
 $(TARGET): $(ALL_OBJS)
 	$(CC) -o $@ $^ $(LDFLAGS) $(LIBS)
 
-$(STB_OBJ): $(STB_SRC)
+$(LIB_OBJ): $(BUILD_DIR)/%.o: %.c
 	@mkdir -p $(dir $@)
-	$(CC) -O2 -g -Isrc -MMD -MP -c $< -o $@
+	$(CC) $(LIB_CFLAGS) -c $< -o $@
 
 $(BUILD_DIR)/%.o: %.c
 	@mkdir -p $(dir $@)
