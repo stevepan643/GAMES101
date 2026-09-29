@@ -22,40 +22,45 @@
 #include <stdint.h>
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
-typedef enum tobj_tess_status {
-  TOBJ_TESS_OK = 0,                 /* clean triangulation */
-  TOBJ_TESS_DEGENERATE_BESTEFFORT,  /* n-2 tris emitted, but input was bad */
-  TOBJ_TESS_INVALID,                /* n<3 / bad args / non-finite: 0 tris */
-  TOBJ_TESS_OOM                     /* needed allocation but none available */
-} tobj_tess_status;
+    typedef enum tobj_tess_status
+    {
+        TOBJ_TESS_OK = 0,                /* clean triangulation */
+        TOBJ_TESS_DEGENERATE_BESTEFFORT, /* n-2 tris emitted, but input was bad */
+        TOBJ_TESS_INVALID,               /* n<3 / bad args / non-finite: 0 tris */
+        TOBJ_TESS_OOM                    /* needed allocation but none available */
+    } tobj_tess_status;
 
-enum {
-  TOBJ_TESS_FLAG_NONE = 0,
-  TOBJ_TESS_FLAG_ASSUME_CONVEX = 1u << 0, /* skip convexity test, fan */
-  TOBJ_TESS_FLAG_FORCE_FAN = 1u << 1,     /* always fan from corner 0 */
-  TOBJ_TESS_FLAG_NORMAL_GIVEN = 1u << 2   /* use desc->normal, skip Newell */
-};
+    enum
+    {
+        TOBJ_TESS_FLAG_NONE = 0,
+        TOBJ_TESS_FLAG_ASSUME_CONVEX = 1u << 0, /* skip convexity test, fan */
+        TOBJ_TESS_FLAG_FORCE_FAN = 1u << 1,     /* always fan from corner 0 */
+        TOBJ_TESS_FLAG_NORMAL_GIVEN = 1u << 2   /* use desc->normal, skip Newell */
+    };
 
-/* Optional allocator (used only when scratch / out_indices are not supplied). */
-typedef struct tobj_tess_allocator {
-  void *(*alloc)(void *ud, size_t size);
-  void (*free)(void *ud, void *ptr);
-  void *ud;
-} tobj_tess_allocator;
+    /* Optional allocator (used only when scratch / out_indices are not supplied). */
+    typedef struct tobj_tess_allocator
+    {
+        void *(*alloc)(void *ud, size_t size);
+        void (*free)(void *ud, void *ptr);
+        void *ud;
+    } tobj_tess_allocator;
 
-/* Worst-case scratch size (in bytes) needed to tessellate n vertices with no
- * dynamic allocation. Pure function. */
-size_t tobj_tess_scratch_size(uint32_t n);
+    /* Worst-case scratch size (in bytes) needed to tessellate n vertices with no
+     * dynamic allocation. Pure function. */
+    size_t tobj_tess_scratch_size(uint32_t n);
 
-typedef struct tobj_tess_result {
-  uint32_t *indices;      /* == desc->out_indices, or an allocated block */
-  uint32_t num_triangles; /* n-2 on success */
-  int indices_allocated;  /* 1 => free indices with the allocator */
-  tobj_tess_status status;
-} tobj_tess_result;
+    typedef struct tobj_tess_result
+    {
+        uint32_t *indices;      /* == desc->out_indices, or an allocated block */
+        uint32_t num_triangles; /* n-2 on success */
+        int indices_allocated;  /* 1 => free indices with the allocator */
+        tobj_tess_status status;
+    } tobj_tess_result;
 
 #define TOBJ_TESS_CAT_(a, b) a##b
 #define TOBJ_TESS_CAT(a, b) TOBJ_TESS_CAT_(a, b)
