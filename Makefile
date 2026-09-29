@@ -18,7 +18,7 @@ CFLAGS := -Wall -Wextra -Wpedantic -Wshadow -Wconversion \
 LIBS := $(shell $(PKG_CONFIG) --libs $(PACKAGES))
 LDFLAGS :=
 
-LIB_CFLAGS := -O2 -g -Isrc -MMD -MP
+LIB_CFLAGS := -O2 -g -Isrc -MMD -MP -DTOBJ_ENABLE_FILE_IO
 
 ifeq ($(BUILD),debug)
     CFLAGS  += -O0 -g3 -DDEBUG -fsanitize=address,undefined -fno-omit-frame-pointer
