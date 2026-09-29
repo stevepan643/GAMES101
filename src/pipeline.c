@@ -159,7 +159,7 @@ void program_draw(program_t *p, render_target_t target, vertex_attr_t *attrs, si
     if (p->varying_buf != NULL)
         free(p->varying_buf);
     p->varying_buf = p->varying_size ? malloc(p->varying_size * vcount) : NULL;
-    uint8_t *vbuf = (uint8_t*)p->varying_buf;
+    uint8_t *vbuf = (uint8_t *)p->varying_buf;
 
     vec4f_t *positions = malloc(sizeof(vec4f_t) * vcount);
 
@@ -175,7 +175,7 @@ void program_draw(program_t *p, render_target_t target, vertex_attr_t *attrs, si
             sa[attrs[ai].location].data = base + attrs[ai].offset;
         }
 
-        vertex_input_t vin = { sa, (uint32_t)count };
+        vertex_input_t vin = {sa, (uint32_t)count};
         vec4f_t clip;
         p->vs(&vin, vbuf + vi * p->varying_size, &clip, vuniform);
 
@@ -205,9 +205,9 @@ void program_draw(program_t *p, render_target_t target, vertex_attr_t *attrs, si
         vec4f_t *v2 = &positions[i[ti + 1]];
         vec4f_t *v3 = &positions[i[ti + 2]];
 
-        float *varing1 = (float*)(vbuf + i[ti]     * p->varying_size);
-        float *varing2 = (float*)(vbuf + i[ti + 1] * p->varying_size);
-        float *varing3 = (float*)(vbuf + i[ti + 2] * p->varying_size);
+        float *varing1 = (float *)(vbuf + i[ti] * p->varying_size);
+        float *varing2 = (float *)(vbuf + i[ti + 1] * p->varying_size);
+        float *varing3 = (float *)(vbuf + i[ti + 2] * p->varying_size);
 
         float min_xf = fminf(fminf(v1->x, v2->x), v3->x);
         float max_xf = fmaxf(fmaxf(v1->x, v2->x), v3->x);
@@ -219,10 +219,14 @@ void program_draw(program_t *p, render_target_t target, vertex_attr_t *attrs, si
         int min_y = (int)floorf(min_yf);
         int max_y = (int)ceilf(max_yf);
 
-        if (min_x < 0) min_x = 0;
-        if (min_y < 0) min_y = 0;
-        if (max_x >= (int)w) max_x = (int)w - 1;
-        if (max_y >= (int)h) max_y = (int)h - 1;
+        if (min_x < 0)
+            min_x = 0;
+        if (min_y < 0)
+            min_y = 0;
+        if (max_x >= (int)w)
+            max_x = (int)w - 1;
+        if (max_y >= (int)h)
+            max_y = (int)h - 1;
 
         for (int y = min_y; y <= max_y; ++y)
         {
@@ -250,13 +254,15 @@ void program_draw(program_t *p, render_target_t target, vertex_attr_t *attrs, si
                         float p2 = b / v2->w;
                         float p3 = c / v3->w;
                         float inv = 1.0f / (p1 + p2 + p3);
-                        p1 *= inv; p2 *= inv; p3 *= inv;
+                        p1 *= inv;
+                        p2 *= inv;
+                        p3 *= inv;
 
                         for (size_t k = 0; k < nf; ++k)
-                            frag_varying[k] = varing1[k]*p1 + varing2[k]*p2 + varing3[k]*p3;
+                            frag_varying[k] = varing1[k] * p1 + varing2[k] * p2 + varing3[k] * p3;
                     }
 
-                    vec2f_t screen_pos = { sx, sy };
+                    vec2f_t screen_pos = {sx, sy};
                     color_t out_color = COLOR_RGB(0, 0, 0);
                     p->fs(screen_pos, z, nf ? frag_varying : NULL, &out_color, funiform);
 

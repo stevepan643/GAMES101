@@ -1,10 +1,9 @@
-#include "stb_image.h"
-
 #include "compute.h"
 #include "pipeline.h"
+#include "stb_image.h"
+#include "texture.h"
 #include "triangle.h"
 #include "window.h"
-#include "texture.h"
 
 #include <stdio.h>
 
@@ -50,21 +49,22 @@ int texture_load(texture_t *tex, const char *path)
 
     unsigned char *data = stbi_load(path, &w, &h, &ch, 4);
 
-    if (!data) {
-        fprintf(stderr, "Load failed: %s\n Because: %s\n",
-                path, stbi_failure_reason());
+    if (!data)
+    {
+        fprintf(stderr, "Load failed: %s\n Because: %s\n", path, stbi_failure_reason());
         return -1;
     }
 
-    tex->data     = data;
-    tex->width    = w;
-    tex->height   = h;
+    tex->data = data;
+    tex->width = w;
+    tex->height = h;
     tex->channels = 4;
     return 0;
 }
 void texture_free(texture_t *tex)
 {
-    if (tex->data) {
+    if (tex->data)
+    {
         stbi_image_free(tex->data);
         tex->data = NULL;
     }
@@ -123,23 +123,20 @@ void vs(const vertex_input_t *input, void *out, vec4f_t *out_position, void *uni
     vuniform_t *uni = (vuniform_t *)uniform;
     *out_position = mat4f_mul_vec4f(
         uni->viewing_projection,
-        mat4f_mul_vec4f(uni->model, (vec4f_t){position.x, position.y, position.z, 1})
-    );
+        mat4f_mul_vec4f(uni->model, (vec4f_t){position.x, position.y, position.z, 1}));
     varing_t *v = (varing_t *)out;
     v->color = color;
     v->uv = program_location_get2f(input, 2);
 }
 
-void fs(vec2f_t screen_pos, float fdepth, const void *in,
-        color_t *out_color, void *uniform)
+void fs(vec2f_t screen_pos, float fdepth, const void *in, color_t *out_color, void *uniform)
 {
     (void)screen_pos;
     (void)fdepth;
     funiform_t *funi = (funiform_t *)uniform;
     varing_t *v = (varing_t *)in;
 
-    color_t c = texture_sample(funi->texture, v->uv.x, v->uv.y,
-                               WRAP_CLAMP, FILTER_BILINEAR);
+    color_t c = texture_sample(funi->texture, v->uv.x, v->uv.y, WRAP_CLAMP, FILTER_BILINEAR);
 
     float a = c.a / 255.0f;
 
@@ -184,8 +181,10 @@ void init(window_t **window_out)
     return;
 
 fail:
-    free(depth);        depth = NULL;
-    free(color_buffer); color_buffer = NULL;
+    free(depth);
+    depth = NULL;
+    free(color_buffer);
+    color_buffer = NULL;
     window_destroy(window);
 }
 
@@ -240,26 +239,26 @@ int main(void)
     window_t *window = NULL;
     init(&window);
 
-    vertex_attr_t attr[] = {
-        {0, VERT_ATTR_FLOAT3, 0},
-        {1, VERT_ATTR_FLOAT3, sizeof(float) * 3},
-        {2, VERT_ATTR_FLOAT2, sizeof(float) * 6}
-    };
+    vertex_attr_t attr[] = {{0, VERT_ATTR_FLOAT3, 0},
+                            {1, VERT_ATTR_FLOAT3, sizeof(float) * 3},
+                            {2, VERT_ATTR_FLOAT2, sizeof(float) * 6}};
 
     vertex_t vertices[] = {
-        {{ 0.0f,  1.8f, -2.0f}, {1.0f, 0.0f, 0.0f}, {0.5f, 1.0f}},
+        {{0.0f, 1.8f, -2.0f}, {1.0f, 0.0f, 0.0f}, {0.5f, 1.0f}},
         {{-1.8f, -1.5f, -2.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
-        {{ 1.8f, -1.5f, -2.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 0.0f}},
+        {{1.8f, -1.5f, -2.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 0.0f}},
     };
 
     uint32_t indices[] = {
-        0, 1, 2,
+        0,
+        1,
+        2,
     };
 
     texture_t texture;
     texture_load(&texture, "resource/texture.png");
 
-    funiform_t funi = (funiform_t){ .texture = &texture };
+    funiform_t funi = (funiform_t){.texture = &texture};
 
     float n = 0.01f, f = 100.0f;
     float fov_y = 60.0f * ((float)M_PI / 180.0f);
@@ -275,10 +274,7 @@ int main(void)
     program_link(program, sizeof(varing_t));
 
     render_target_t target = {
-        .color_buffer = color_buffer,
-        .sample_count = msaa_level,
-        .z_buffer = depth
-    };
+        .color_buffer = color_buffer, .sample_count = msaa_level, .z_buffer = depth};
 
     uint64_t last_time = window_get_time();
     uint64_t last_fps_update = last_time;
@@ -314,20 +310,15 @@ int main(void)
             depth[i] = INFINITY;
         for (size_t i = 0; i < color_size; ++i)
             color_buffer[i] = COLOR_RGB(0xAF, 0xAF, 0xAF);
-        
+
         uint64_t t_ms = window_get_time();
         float t = (float)t_ms / 1000.0f;
         float angle = t * 1.0f;
 
         mat4f_t model = mat4f_rotate_y(angle);
 
-        vuniform_t vunif = {
-            .model = model,
-            .viewing_projection = mat4f_mul(projection, viewing)
-        };
-        program_draw(program, target, attr, 3, sizeof(vertex_t),
-                     vertices, 3,
-                     indices, 3,
+        vuniform_t vunif = {.model = model, .viewing_projection = mat4f_mul(projection, viewing)};
+        program_draw(program, target, attr, 3, sizeof(vertex_t), vertices, 3, indices, 3,
                      (void *)&vunif, (void *)&funi);
 
         msaa_resolve(fb, stride, bpp, w, h);
