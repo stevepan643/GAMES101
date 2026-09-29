@@ -159,16 +159,16 @@ void program_draw(program_t *p, render_target_t target, vertex_attr_t *attrs, si
     if (p->varying_buf != NULL)
         free(p->varying_buf);
     p->varying_buf = p->varying_size ? malloc(p->varying_size * vcount) : NULL;
-
     uint8_t *vbuf = (uint8_t*)p->varying_buf;
 
     vec4f_t *positions = malloc(sizeof(vec4f_t) * vcount);
+
+    shader_attrib_t *sa = malloc(count * sizeof(shader_attrib_t));
 
     for (size_t vi = 0; vi < vcount; vi++)
     {
         const uint8_t *base = (const uint8_t *)v + vi * stride;
 
-        shader_attrib_t *sa = (shader_attrib_t *)calloc(count, sizeof(shader_attrib_t));
         for (size_t ai = 0; ai < count; ai++)
         {
             sa[attrs[ai].location].type = attrs[ai].type;
@@ -181,19 +181,29 @@ void program_draw(program_t *p, render_target_t target, vertex_attr_t *attrs, si
 
         vec4f_t ndc = perspective_divide(clip);
         positions[vi] = ndc_to_screen(ndc, w, h);
-
-        free(sa);
     }
 
-    float (*sample_positions)[2] = malloc(sizeof(float) * 2 * samples);
-    generate_sample_positions(samples, sample_positions);
+    free(sa);
+
+    static float (*cached_sample_pos)[2] = NULL;
+    static uint32_t cached_samples = 0;
+    if (samples != cached_samples)
+    {
+        free(cached_sample_pos);
+        cached_sample_pos = malloc(sizeof(float) * 2 * samples);
+        generate_sample_positions(samples, cached_sample_pos);
+        cached_samples = samples;
+    }
+    float (*sample_positions)[2] = cached_sample_pos;
+
+    size_t nf = p->varying_size / sizeof(float);
+    float *frag_varying = nf ? malloc(nf * sizeof(float)) : NULL;
 
     for (size_t ti = 0; ti < icount; ti += 3)
     {
-        vec4f_t *v1, *v2, *v3;
-        v1 = &positions[i[ti]];
-        v2 = &positions[i[ti + 1]];
-        v3 = &positions[i[ti + 2]];
+        vec4f_t *v1 = &positions[i[ti]];
+        vec4f_t *v2 = &positions[i[ti + 1]];
+        vec4f_t *v3 = &positions[i[ti + 2]];
 
         float *varing1 = (float*)(vbuf + i[ti]     * p->varying_size);
         float *varing2 = (float*)(vbuf + i[ti + 1] * p->varying_size);
@@ -209,14 +219,10 @@ void program_draw(program_t *p, render_target_t target, vertex_attr_t *attrs, si
         int min_y = (int)floorf(min_yf);
         int max_y = (int)ceilf(max_yf);
 
-        if (min_x < 0)
-            min_x = 0;
-        if (min_y < 0)
-            min_y = 0;
-        if (max_x >= (int)w)
-            max_x = (int)w - 1;
-        if (max_y >= (int)h)
-            max_y = (int)h - 1;
+        if (min_x < 0) min_x = 0;
+        if (min_y < 0) min_y = 0;
+        if (max_x >= (int)w) max_x = (int)w - 1;
+        if (max_y >= (int)h) max_y = (int)h - 1;
 
         for (int y = min_y; y <= max_y; ++y)
         {
@@ -224,8 +230,8 @@ void program_draw(program_t *p, render_target_t target, vertex_attr_t *attrs, si
             {
                 for (uint32_t si = 0; si < samples; ++si)
                 {
-                    float sx = (float)(x) + sample_positions[si][0];
-                    float sy = (float)(y) + sample_positions[si][1];
+                    float sx = (float)x + sample_positions[si][0];
+                    float sy = (float)y + sample_positions[si][1];
 
                     float a, b, c;
                     barycentric(v1, v2, v3, sx, sy, &a, &b, &c);
@@ -238,28 +244,21 @@ void program_draw(program_t *p, render_target_t target, vertex_attr_t *attrs, si
                     if (z >= target.z_buffer[idx])
                         continue;
 
-                    float *frag_varying = NULL;
-                    if (p->varying_size)
+                    if (nf)
                     {
-                        size_t nf = p->varying_size / sizeof(float);
                         float p1 = a / v1->w;
                         float p2 = b / v2->w;
                         float p3 = c / v3->w;
                         float inv = 1.0f / (p1 + p2 + p3);
-                        p1 *= inv;
-                        p2 *= inv;
-                        p3 *= inv;
+                        p1 *= inv; p2 *= inv; p3 *= inv;
 
-                        frag_varying = (float*)malloc(nf * sizeof(float));
                         for (size_t k = 0; k < nf; ++k)
-                            frag_varying[k] = varing1[k] * p1 + varing2[k] * p2 + varing3[k] * p3;
+                            frag_varying[k] = varing1[k]*p1 + varing2[k]*p2 + varing3[k]*p3;
                     }
 
                     vec2f_t screen_pos = { sx, sy };
                     color_t out_color = COLOR_RGB(0, 0, 0);
-                    p->fs(screen_pos, z, frag_varying, &out_color, funiform);
-
-                    free(frag_varying);
+                    p->fs(screen_pos, z, nf ? frag_varying : NULL, &out_color, funiform);
 
                     target.z_buffer[idx] = z;
                     target.color_buffer[idx] = out_color;
@@ -268,7 +267,7 @@ void program_draw(program_t *p, render_target_t target, vertex_attr_t *attrs, si
         }
     }
 
-    free(sample_positions);
+    free(frag_varying);
     free(positions);
 }
 
