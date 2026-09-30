@@ -205,6 +205,11 @@ void program_draw(program_t *p, render_target_t target, vertex_attr_t *attrs, si
         vec4f_t *v2 = &positions[i[ti + 1]];
         vec4f_t *v3 = &positions[i[ti + 2]];
 
+        float area = (v2->y - v3->y) * (v1->x - v3->x) + (v3->x - v2->x) * (v1->y - v3->y);
+
+        if (area > 0.0f)
+            continue;
+
         float *varing1 = (float *)(vbuf + i[ti] * p->varying_size);
         float *varing2 = (float *)(vbuf + i[ti + 1] * p->varying_size);
         float *varing3 = (float *)(vbuf + i[ti + 2] * p->varying_size);

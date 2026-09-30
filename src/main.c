@@ -17,7 +17,7 @@ color_t *color_buffer = NULL;
 size_t color_size = 0;
 size_t color_capacity = 0;
 
-uint32_t msaa_level = 16;
+uint32_t msaa_level = 4;
 
 typedef struct
 {
@@ -325,10 +325,10 @@ int main(void)
         .light_pos = {-5.0f, 5.0f, 5.0f},
         .camera_pos = eyepos,
         .light_color = {1.0f, 1.0f, 1.0f},
-        .Ka = 0.1f,
-        .Kd = 0.7f,
-        .Ks = 0.3f,
-        .shininess = 32.0f,
+        .Ka = 0.05f,
+        .Kd = 0.55f,
+        .Ks = 1.2f,
+        .shininess = 128.0f,
     };
 
     uint64_t last_time = window_get_time();
