@@ -109,24 +109,12 @@ void generate_sample_positions(uint32_t samples, float (*out)[2])
     }
 }
 
-static inline void barycentric(vec4f_t *v1, vec4f_t *v2, vec4f_t *v3, float x, float y, float *a,
-                               float *b, float *c)
+static inline void barycentric_fast(float x1, float y1, float x2, float y2, float x3, float y3,
+                                    float inv_area, float x, float y,
+                                    float *a, float *b, float *c)
 {
-    float x1 = v1->x, y1 = v1->y;
-    float x2 = v2->x, y2 = v2->y;
-    float x3 = v3->x, y3 = v3->y;
-
-    float area = (x2 - x1) * (y3 - y1) - (y2 - y1) * (x3 - x1);
-
-    if (area == 0.0f)
-    {
-        *a = *b = *c = 0.0f;
-        return;
-    }
-    float inv = 1.0f / area;
-
-    *a = ((x2 - x) * (y3 - y) - (y2 - y) * (x3 - x)) * inv;
-    *b = ((x3 - x) * (y1 - y) - (y3 - y) * (x1 - x)) * inv;
+    *a = ((x2 - x) * (y3 - y) - (y2 - y) * (x3 - x)) * inv_area;
+    *b = ((x3 - x) * (y1 - y) - (y3 - y) * (x1 - x)) * inv_area;
     *c = 1.0f - *a - *b;
 }
 
@@ -210,6 +198,8 @@ void program_draw(program_t *p, render_target_t target, vertex_attr_t *attrs, si
         if (area > 0.0f)
             continue;
 
+        float inv_area = 1.0f / area;
+
         float *varing1 = (float *)(vbuf + i[ti] * p->varying_size);
         float *varing2 = (float *)(vbuf + i[ti + 1] * p->varying_size);
         float *varing3 = (float *)(vbuf + i[ti + 2] * p->varying_size);
@@ -237,42 +227,59 @@ void program_draw(program_t *p, render_target_t target, vertex_attr_t *attrs, si
         {
             for (int x = min_x; x <= max_x; ++x)
             {
+                uint32_t coverage = 0;
+
                 for (uint32_t si = 0; si < samples; ++si)
                 {
                     float sx = (float)x + sample_positions[si][0];
                     float sy = (float)y + sample_positions[si][1];
 
                     float a, b, c;
-                    barycentric(v1, v2, v3, sx, sy, &a, &b, &c);
+                    barycentric_fast(v1->x, v1->y, v2->x, v2->y, v3->x, v3->y, inv_area, sx, sy, &a, &b, &c);
                     if (a < 0.0f || b < 0.0f || c < 0.0f)
                         continue;
 
                     float z = a * v1->z + b * v2->z + c * v3->z;
-
                     size_t idx = ((size_t)y * w + (size_t)x) * samples + si;
                     if (z >= target.z_buffer[idx])
                         continue;
 
-                    if (nf)
-                    {
-                        float p1 = a / v1->w;
-                        float p2 = b / v2->w;
-                        float p3 = c / v3->w;
-                        float inv = 1.0f / (p1 + p2 + p3);
-                        p1 *= inv;
-                        p2 *= inv;
-                        p3 *= inv;
-
-                        for (size_t k = 0; k < nf; ++k)
-                            frag_varying[k] = varing1[k] * p1 + varing2[k] * p2 + varing3[k] * p3;
-                    }
-
-                    vec2f_t screen_pos = {sx, sy};
-                    color_t out_color = COLOR_RGB(0, 0, 0);
-                    p->fs(screen_pos, z, nf ? frag_varying : NULL, &out_color, funiform);
-
                     target.z_buffer[idx] = z;
-                    target.color_buffer[idx] = out_color;
+                    coverage |= (1u << si);
+                }
+
+                if (!coverage)
+                    continue;
+
+                float px = (float)x + 0.5f;
+                float py = (float)y + 0.5f;
+
+                float a, b, c;
+                barycentric_fast(v1->x, v1->y, v2->x, v2->y, v3->x, v3->y, inv_area, px, py, &a, &b, &c);
+                float z = a * v1->z + b * v2->z + c * v3->z;
+
+                if (nf)
+                {
+                    float p1 = a / v1->w;
+                    float p2 = b / v2->w;
+                    float p3 = c / v3->w;
+                    float inv = 1.0f / (p1 + p2 + p3);
+                    p1 *= inv; p2 *= inv; p3 *= inv;
+
+                    for (size_t k = 0; k < nf; ++k)
+                        frag_varying[k] = varing1[k] * p1 + varing2[k] * p2 + varing3[k] * p3;
+                }
+
+                color_t out_color = COLOR_RGB(0, 0, 0);
+                p->fs((vec2f_t){px, py}, z, nf ? frag_varying : NULL, &out_color, funiform);
+
+                for (uint32_t si = 0; si < samples; ++si)
+                {
+                    if (coverage & (1u << si))
+                    {
+                        size_t idx = ((size_t)y * w + (size_t)x) * samples + si;
+                        target.color_buffer[idx] = out_color;
+                    }
                 }
             }
         }
