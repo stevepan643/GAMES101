@@ -24,6 +24,7 @@ typedef struct
     vec3f_t pos;
     vec3f_t normal;
     vec3f_t color;
+    vec2f_t uv;
 } vertex_t;
 
 typedef struct
@@ -39,6 +40,7 @@ typedef struct
     vec3f_t camera_pos;
     vec3f_t light_color;
     float Ka, Kd, Ks, shininess;
+    texture_t *texture;
 } funiform_t;
 
 typedef struct
@@ -46,37 +48,8 @@ typedef struct
     vec3f_t world_pos;
     vec3f_t normal;
     vec3f_t color;
+    vec2f_t uv;
 } varing_t;
-
-int texture_load(texture_t *tex, const char *path)
-{
-    int w, h, ch;
-
-    stbi_set_flip_vertically_on_load(1);
-
-    unsigned char *data = stbi_load(path, &w, &h, &ch, 4);
-
-    if (!data)
-    {
-        fprintf(stderr, "Load failed: %s\n Because: %s\n", path, stbi_failure_reason());
-        return -1;
-    }
-
-    tex->data = data;
-    tex->width = w;
-    tex->height = h;
-    tex->channels = 4;
-    return 0;
-}
-void texture_free(texture_t *tex)
-{
-    if (tex->data)
-    {
-        stbi_image_free(tex->data);
-        tex->data = NULL;
-    }
-    tex->width = tex->height = tex->channels = 0;
-}
 
 static inline mat4f_t get_viewing(vec3f_t eyepos)
 {
@@ -127,6 +100,7 @@ void vs(const vertex_input_t *input, void *out, vec4f_t *out_position, void *uni
     vec3f_t position = program_location_get3f(input, 0);
     vec3f_t normal = program_location_get3f(input, 1);
     vec3f_t color = program_location_get3f(input, 2);
+    vec2f_t uv = program_location_get2f(input, 3); // 新增：读取 UV
 
     vuniform_t *uni = (vuniform_t *)uniform;
     vec4f_t world = mat4f_mul_vec4f(uni->model, (vec4f_t){position.x, position.y, position.z, 1});
@@ -138,6 +112,7 @@ void vs(const vertex_input_t *input, void *out, vec4f_t *out_position, void *uni
     vec4f_t n4 = mat4f_mul_vec4f(uni->normal_matrix, (vec4f_t){normal.x, normal.y, normal.z, 0});
     v->normal = (vec3f_t){n4.x, n4.y, n4.z};
     v->color = color;
+    v->uv = uv; // 新增：传递 UV 供 FS 插值采样
 }
 
 void fs(vec2f_t screen_pos, float fdepth, const void *in, color_t *out_color, void *uniform)
@@ -147,6 +122,16 @@ void fs(vec2f_t screen_pos, float fdepth, const void *in, color_t *out_color, vo
     funiform_t *u = (funiform_t *)uniform;
     varing_t *v = (varing_t *)in;
 
+    texture_t *tex = u->texture;
+
+    float dist = vec3f_length(vec3f_sub(u->camera_pos, v->world_pos));
+
+    float lod = fmaxf(0.0f, log2f(dist * 0.2f));
+
+    color_t tex_color = texture_sample(tex, v->uv.x, v->uv.y, lod);
+
+    vec3f_t albedo = (vec3f_t){tex_color.r / 255.0f, tex_color.g / 255.0f, tex_color.b / 255.0f};
+
     vec3f_t N = vec3f_normalize(v->normal);
     vec3f_t L = vec3f_normalize(vec3f_sub(u->light_pos, v->world_pos));
     vec3f_t V = vec3f_normalize(vec3f_sub(u->camera_pos, v->world_pos));
@@ -155,8 +140,8 @@ void fs(vec2f_t screen_pos, float fdepth, const void *in, color_t *out_color, vo
     float diff = fmaxf(vec3f_dot(N, L), 0.0f);
     float spec = powf(fmaxf(vec3f_dot(N, H), 0.0f), u->shininess);
 
-    vec3f_t ambient = vec3f_scale(v->color, u->Ka);
-    vec3f_t diffuse = vec3f_scale(v->color, u->Kd * diff);
+    vec3f_t ambient = vec3f_scale(albedo, u->Ka);
+    vec3f_t diffuse = vec3f_scale(albedo, u->Kd * diff);
     vec3f_t specular = vec3f_scale(u->light_color, u->Ks * spec);
 
     vec3f_t result = vec3f_add(vec3f_add(ambient, diffuse), specular);
@@ -256,7 +241,7 @@ int main(void)
     tobj_load_config cfg = tobj_default_config();
     tobj_diag diag = {0};
 
-    if (tobj_load_obj_from_file(&scene, "resource/stanford-bunny.obj", &cfg, &diag) != TOBJ_OK)
+    if (tobj_load_obj_from_file(&scene, "resource/sphere.obj", &cfg, &diag) != TOBJ_OK)
     {
         fprintf(stderr, "Failed to load OBJ: %s\n", diag.err ? diag.err : "Unknown error");
         return 1;
@@ -268,9 +253,10 @@ int main(void)
         total_indices += scene.shapes[s].mesh.num_indices;
     }
 
-    vertex_attr_t attr[] = {{0, VERT_ATTR_FLOAT3, 0},
-                            {1, VERT_ATTR_FLOAT3, sizeof(float) * 3},
-                            {2, VERT_ATTR_FLOAT3, sizeof(float) * 6}};
+    vertex_attr_t attr[] = {{0, VERT_ATTR_FLOAT3, offsetof(vertex_t, pos)},
+                            {1, VERT_ATTR_FLOAT3, offsetof(vertex_t, normal)},
+                            {2, VERT_ATTR_FLOAT3, offsetof(vertex_t, color)},
+                            {3, VERT_ATTR_FLOAT2, offsetof(vertex_t, uv)}};
 
     vertex_t *vertices = malloc(total_indices * sizeof(vertex_t));
     uint32_t *indices = malloc(total_indices * sizeof(uint32_t));
@@ -283,18 +269,26 @@ int main(void)
         for (size_t i = 0; i < mesh->num_indices; i++)
         {
             tobj_index idx = mesh->indices[i];
-
             vertex_t v = {0};
 
+            // Position
             v.pos.x = scene.attrib.vertices.ptr[3 * idx.vertex_index + 0];
             v.pos.y = scene.attrib.vertices.ptr[3 * idx.vertex_index + 1];
             v.pos.z = scene.attrib.vertices.ptr[3 * idx.vertex_index + 2];
 
+            // Normal
             if (scene.attrib.normals.ptr != NULL && idx.normal_index >= 0)
             {
                 v.normal.x = scene.attrib.normals.ptr[3 * idx.normal_index + 0];
                 v.normal.y = scene.attrib.normals.ptr[3 * idx.normal_index + 1];
                 v.normal.z = scene.attrib.normals.ptr[3 * idx.normal_index + 2];
+            }
+
+            // UV Coordinates
+            if (scene.attrib.texcoords.ptr != NULL && idx.texcoord_index >= 0)
+            {
+                v.uv.x = scene.attrib.texcoords.ptr[2 * idx.texcoord_index + 0];
+                v.uv.y = scene.attrib.texcoords.ptr[2 * idx.texcoord_index + 1];
             }
 
             v.color = (vec3f_t){1.0f, 1.0f, 1.0f};
@@ -318,18 +312,19 @@ int main(void)
     program_set_fragment_shader(program, fs);
     program_link(program, sizeof(varing_t));
 
+    texture_t *texture = texture_create("resource/wall1.png", WRAP_REPEAT, FILTER_BILINEAR, true);
+
     render_target_t target = {
         .color_buffer = color_buffer, .sample_count = msaa_level, .z_buffer = depth};
 
-    funiform_t funi = {
-        .light_pos = {-5.0f, 5.0f, 5.0f},
-        .camera_pos = eyepos,
-        .light_color = {1.0f, 1.0f, 1.0f},
-        .Ka = 0.05f,
-        .Kd = 0.55f,
-        .Ks = 1.2f,
-        .shininess = 128.0f,
-    };
+    funiform_t funi = {.light_pos = {-5.0f, 5.0f, 5.0f},
+                       .camera_pos = eyepos,
+                       .light_color = {1.0f, 1.0f, 1.0f},
+                       .Ka = 0.25f,
+                       .Kd = 0.8f,
+                       .Ks = 1.2f,
+                       .shininess = 128.0f,
+                       .texture = texture};
 
     uint64_t last_time = window_get_time();
     uint64_t last_fps_update = last_time;
@@ -370,7 +365,8 @@ int main(void)
         float t = (float)t_ms / 1000.0f;
         float angle = t * 1.0f;
 
-        mat4f_t model = mat4f_mul(mat4f_scale_m(10.0f, 10.0f, 10.0f), mat4f_rotate_y(angle));
+        mat4f_t model = mat4f_mul(mat4f_scale_m(0.8f, 0.8f, 0.8f), mat4f_rotate_y(angle));
+        model = mat4f_mul(mat4f_translate(0.0f, 0.0f, 4.0f * sinf(t) - 3.0f), model);
         mat4f_t normal_matrix;
         mat4f_inverse(model, &normal_matrix);
         normal_matrix = mat4f_transpose(normal_matrix);
@@ -378,7 +374,8 @@ int main(void)
         vuniform_t vunif = {.model = model,
                             .normal_matrix = normal_matrix,
                             .viewing_projection = mat4f_mul(projection, viewing)};
-        program_draw(program, target, attr, 3, sizeof(vertex_t), vertices, (uint32_t)vertex_count,
+
+        program_draw(program, target, attr, 4, sizeof(vertex_t), vertices, (uint32_t)vertex_count,
                      indices, (uint32_t)vertex_count, (void *)&vunif, (void *)&funi);
 
         msaa_resolve(fb, stride, bpp, w, h);
@@ -403,6 +400,7 @@ int main(void)
     }
 
 done:
+    texture_free(texture);
     free(depth);
     free(color_buffer);
     window_destroy(window);

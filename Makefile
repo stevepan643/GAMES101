@@ -5,7 +5,7 @@ PACKAGES := SDL3
 BUILD ?= debug
 TARGET := Rasterization
 SRCS := src/main.c src/window.c src/pipeline.c
-LIB_SRC := src/stb_image_impl.c src/tiny_obj_c.c src/tobj_tess.c
+LIB_SRC := src/stb_image_impl.c src/tiny_obj_c.c src/tobj_tess.c src/texture.c
 
 .DEFAULT_GOAL := $(TARGET)
 

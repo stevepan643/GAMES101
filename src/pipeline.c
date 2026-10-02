@@ -110,8 +110,7 @@ void generate_sample_positions(uint32_t samples, float (*out)[2])
 }
 
 static inline void barycentric_fast(float x1, float y1, float x2, float y2, float x3, float y3,
-                                    float inv_area, float x, float y,
-                                    float *a, float *b, float *c)
+                                    float inv_area, float x, float y, float *a, float *b, float *c)
 {
     *a = ((x2 - x) * (y3 - y) - (y2 - y) * (x3 - x)) * inv_area;
     *b = ((x3 - x) * (y1 - y) - (y3 - y) * (x1 - x)) * inv_area;
@@ -235,7 +234,8 @@ void program_draw(program_t *p, render_target_t target, vertex_attr_t *attrs, si
                     float sy = (float)y + sample_positions[si][1];
 
                     float a, b, c;
-                    barycentric_fast(v1->x, v1->y, v2->x, v2->y, v3->x, v3->y, inv_area, sx, sy, &a, &b, &c);
+                    barycentric_fast(v1->x, v1->y, v2->x, v2->y, v3->x, v3->y, inv_area, sx, sy, &a,
+                                     &b, &c);
                     if (a < 0.0f || b < 0.0f || c < 0.0f)
                         continue;
 
@@ -255,7 +255,8 @@ void program_draw(program_t *p, render_target_t target, vertex_attr_t *attrs, si
                 float py = (float)y + 0.5f;
 
                 float a, b, c;
-                barycentric_fast(v1->x, v1->y, v2->x, v2->y, v3->x, v3->y, inv_area, px, py, &a, &b, &c);
+                barycentric_fast(v1->x, v1->y, v2->x, v2->y, v3->x, v3->y, inv_area, px, py, &a, &b,
+                                 &c);
                 float z = a * v1->z + b * v2->z + c * v3->z;
 
                 if (nf)
@@ -264,7 +265,9 @@ void program_draw(program_t *p, render_target_t target, vertex_attr_t *attrs, si
                     float p2 = b / v2->w;
                     float p3 = c / v3->w;
                     float inv = 1.0f / (p1 + p2 + p3);
-                    p1 *= inv; p2 *= inv; p3 *= inv;
+                    p1 *= inv;
+                    p2 *= inv;
+                    p3 *= inv;
 
                     for (size_t k = 0; k < nf; ++k)
                         frag_varying[k] = varing1[k] * p1 + varing2[k] * p2 + varing3[k] * p3;
